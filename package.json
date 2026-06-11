@@ -3,7 +3,8 @@
   "displayName": "LGP-21 DevKit",
   "description": "Development Kit for the LGP-21 Computer",
   "publisher": "kepeter",
-  "version": "0.0.3",
+  "icon": "images/icon.png",
+  "version": "0.0.5",
   "engines": {
     "vscode": "^1.120.0"
   },
