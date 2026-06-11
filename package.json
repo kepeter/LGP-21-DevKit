@@ -2,7 +2,7 @@
   "name": "lgp21devkit",
   "displayName": "LGP-21 DevKit",
   "description": "Development Kit for the LGP-21 Computer",
-  "publisher": "Kornfeld Eliyahu Peter",
+  "publisher": "kepeter",
   "version": "0.0.3",
   "engines": {
     "vscode": "^1.120.0"
