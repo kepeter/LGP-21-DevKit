@@ -2,6 +2,8 @@
 
 VS Code language extension for the [LGP-21](https://en.wikipedia.org/wiki/LGP-21) drum-memory computer (1963). Provides a full language server for `.lgp21` assembly source files.
 
+[![release](https://img.shields.io/github/v/release/kepeter/LGP-21-DevKit)](.../releases/latest)
+
 ## Features
 
 ### Syntax Highlighting

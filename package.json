@@ -2,7 +2,7 @@
   "name": "lgp21devkit",
   "displayName": "LGP-21 DevKit",
   "description": "Development Kit for the LGP-21 Computer",
-  "publisher": "64er studio",
+  "publisher": "Kornfeld Eliyahu Peter",
   "version": "0.0.3",
   "engines": {
     "vscode": "^1.120.0"
@@ -10,19 +10,34 @@
   "categories": [
     "Programming Languages"
   ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kepeter/LGP-21-DevKit"
+  },
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
-    "languages": [{
-      "id": "lgp21",
-      "aliases": ["lgp21", "LGP-21"],
-      "extensions": ["lgp21"],
-      "configuration": "./syntax/configuration.json"
-    }],
-    "grammars": [{
-      "language": "lgp21",
-      "scopeName": "source.lgp21",
-      "path": "./syntax/grammar.json"
-    }],
+    "languages": [
+      {
+        "id": "lgp21",
+        "aliases": [
+          "lgp21",
+          "LGP-21"
+        ],
+        "extensions": [
+          "lgp21"
+        ],
+        "configuration": "./syntax/configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "lgp21",
+        "scopeName": "source.lgp21",
+        "path": "./syntax/grammar.json"
+      }
+    ],
     "configurationDefaults": {
       "[lgp21]": {
         "editor.formatOnSave": true,
@@ -31,9 +46,10 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -b",
-    "watch": "tsc -b -w",
+    "vscode:prepublish": "node esbuild.js",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc -b --noEmit",
     "clean": "tsc -b --clean"
   },
   "dependencies": {
@@ -44,6 +60,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.120.0",
+    "esbuild": "^0.28.0",
     "typescript": "^5.7.0"
   }
 }

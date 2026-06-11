@@ -1,0 +1,12 @@
+.vscode/**
+node_modules/**
+out/**/*.js.map
+server/out/**/*.js.map
+**/*.ts
+**/*.d.ts
+**/tsconfig*.json
+**/tsconfig.tsbuildinfo
+esbuild.js
+package-lock.json
+ROADMAP.md
+.gitignore
