@@ -1,0 +1,92 @@
+{
+    "name": "lgp21",
+    "scopeName": "source.lgp21",
+    "patterns": [
+        {
+            "include": "#labels"
+        },
+        {
+            "include": "#instructions"
+        },
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#numbers"
+        }
+    ],
+    "repository": {
+        "instructions": {
+            "patterns": [
+                {
+                    "name": "keyword.instruction.lgp21",
+                    "match": "\\b(A|D|M|N|S|E|T|U|Z|B|C|H|I|R|Y|P)\\b|-(T|Z|I|P)\\b"
+                }
+            ]
+        },
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.lgp21",
+                    "match": "(?<!\\w)[.](ORG|DATA)\\b"
+                }
+            ]
+        },
+        "labels": {
+            "patterns": [
+                {
+                    "match": "(?<![\\w:])([A-Za-z_][A-Za-z0-9_]*)(:)",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.label.lgp21"
+                        },
+                        "2": {
+                            "name": "punctuation.separator.label.lgp21"
+                        }
+                    }
+                }
+            ]
+        },
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.number-sign.lgp21",
+                    "match": "#.*$"
+                }
+            ]
+        },
+        "numbers": {
+            "patterns": [
+                {
+                    "name": "constant.numeric.decimal.lgp21",
+                    "match": "\\b[0-9]+(?:\\.[0-9]+)?\\b"
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.single.lgp21",
+                    "begin": "'",
+                    "end": "'",
+                    "patterns": [
+                        {
+                            "name": "constant.character.escape.lgp21",
+                            "match": "\\{(uc|lc|cs|cr|bs|tab)\\}"
+                        },
+                        {
+                            "name": "invalid.illegal.escape.lgp21",
+                            "match": "\\{[^}]*\\}"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

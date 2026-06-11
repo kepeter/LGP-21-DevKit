@@ -1,0 +1,49 @@
+{
+  "name": "lgp21devkit",
+  "displayName": "LGP-21 DevKit",
+  "description": "Development Kit for the LGP-21 Computer",
+  "publisher": "64er studio",
+  "version": "0.0.3",
+  "engines": {
+    "vscode": "^1.120.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [{
+      "id": "lgp21",
+      "aliases": ["lgp21", "LGP-21"],
+      "extensions": ["lgp21"],
+      "configuration": "./syntax/configuration.json"
+    }],
+    "grammars": [{
+      "language": "lgp21",
+      "scopeName": "source.lgp21",
+      "path": "./syntax/grammar.json"
+    }],
+    "configurationDefaults": {
+      "[lgp21]": {
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "tsc -b --clean"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.120.0",
+    "typescript": "^5.7.0"
+  }
+}
