@@ -67,7 +67,7 @@ export const instructionDoc: Record<string, string> = {
         '|---|---|\n' +
         '| `0000`, `0100` | **Halt** |\n' +
         '| `0200`, `0300` | **No-op** |\n' +
-        '| `0400`–`6000` | **Sense Branch Switches** — if all specified switches are ON, execute next instruction; if any is OFF, skip it |\n\n' +
+        '| `0400`-`6000` | **Sense Branch Switches** — if all specified switches are ON, execute next instruction; if any is OFF, skip it |\n\n' +
         '_Branch Switches are numbered 4, 8, 16 and 32._',
 
     '-Z':
@@ -109,15 +109,31 @@ export const instructionDoc: Record<string, string> = {
 };
 
 export const directiveDoc: Record<string, string> = {
-    '.ORG':  '**Origin** — specifies the LGP-21 memory address at which the program will be loaded. DevKit directive; not part of the original LGP-21 instruction set.',
+    '.ORG': '**Origin** — specifies the LGP-21 memory address at which the program will be loaded. DevKit directive; not part of the original LGP-21 instruction set.',
     '.DATA': '**Data** — defines one or more data values at the current location, separated by commas. Values may be numbers, strings. DevKit directive; not part of the original LGP-21 instruction set.',
+    '.SWITCH': '**Switch** — sets one or more console toggle switches to ON for simulation. ' +
+        'Valid names: `BS4`, `BS8`, `BS16`, `BS32`, `TC`. Unlisted switches default to OFF. ' +
+        'Multiple `.SWITCH` directives are permitted. DevKit directive; not part of the original LGP-21 instruction set.',
+    '.Q': '**Q format** — sets the default binary point position for all subsequent numeric literals that do not carry an explicit `@q` suffix. ' +
+        '`.Q n` means *n* bits are used for the integer part and *(30 - n)* bits for the fraction. ' +
+        'Valid range: `0`-`30`. Arithmetic on the LGP-21 requires all operands to share the same q value. ' +
+        'DevKit directive; not part of the original LGP-21 instruction set.',
+};
+
+export const switchDoc: Record<string, string> = {
+    'BS4': '**Branch Switch 4** — sensed by `Z` and `-Z`. If ON and specified in the address, the sense condition is satisfied.',
+    'BS8': '**Branch Switch 8** — sensed by `Z` and `-Z`. If ON and specified in the address, the sense condition is satisfied.',
+    'BS16': '**Branch Switch 16** — sensed by `Z` and `-Z`. If ON and specified in the address, the sense condition is satisfied.',
+    'BS32': '**Branch Switch 32** — sensed by `Z` and `-Z`. If ON and specified in the address, the sense condition is satisfied.',
+    'TC': '**Transfer Control Switch** — sensed by `-T`. If ON, transfer always occurs regardless of the Accumulator sign.',
 };
 
 export const escapeDoc: Record<string, string> = {
-    'lc':  '**Lower Case** _(tape code 1)_ — shift typewriter to lower-case mode.',
-    'uc':  '**Upper Case** _(tape code 2)_ — shift typewriter to upper-case mode.',
-    'cs':  '**Color Shift** _(tape code 3)_ — shift typewriter ribbon color.',
-    'cr':  '**Carriage Return** _(tape code 4)_ — return carriage to left margin and advance paper.',
-    'bs':  '**Back Space** _(tape code 5)_ — move typewriter carriage back one character position.',
-    'tab': '**Tabulate** _(tape code 6)_ — advance typewriter carriage to the next tab stop.',
+    'tf': '**Tape Feed** _(tape code 0)_ — advance tape without actually reading a character.',
+    'lc': '**Lower Case** _(tape code 1)_ — shift typewriter to lower-case mode.',
+    'uc': '**Upper Case** _(tape code 2)_ — shift typewriter to upper-case mode.',
+    'cs': '**Color Shift** _(tape code 3)_ — shift typewriter ribbon color.',
+    'cr': '**Carriage Return** _(tape code 4)_ — return carriage to left margin and advance paper.',
+    'bs': '**Back Space** _(tape code 5)_ — move typewriter carriage back one character position.',
+    'tb': '**Tabulate** _(tape code 6)_ — advance typewriter carriage to the next tab stop.',
 };

@@ -1,13 +1,14 @@
 const esbuild = require('esbuild');
 
 const watch = process.argv.includes('--watch');
+const production = process.argv.includes('--production');
 
 const common = {
     bundle: true,
     platform: 'node',
     format: 'cjs',
     sourcemap: true,
-    minify: !watch,
+    minify: production,
 };
 
 Promise.all([
@@ -21,5 +22,10 @@ Promise.all([
         ...common,
         entryPoints: ['server/server.ts'],
         outfile: 'server/out/server.js',
+    }),
+    esbuild.build({
+        ...common,
+        entryPoints: ['compiler/compiler.ts'],
+        outfile: 'out/compiler.js',
     }),
 ]).catch(() => process.exit(1));

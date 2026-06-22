@@ -34,7 +34,7 @@
             "patterns": [
                 {
                     "name": "keyword.control.lgp21",
-                    "match": "(?<!\\w)[.](ORG|DATA)\\b"
+                    "match": "(?<!\\w)[.](ORG|DATA|SWITCH|Q)\\b"
                 }
             ]
         },
@@ -78,7 +78,7 @@
                     "patterns": [
                         {
                             "name": "constant.character.escape.lgp21",
-                            "match": "\\{(uc|lc|cs|cr|bs|tab)\\}"
+                            "match": "\\{(tf|uc|lc|cs|cr|bs|tb)\\}"
                         },
                         {
                             "name": "invalid.illegal.escape.lgp21",

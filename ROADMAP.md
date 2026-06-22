@@ -10,16 +10,14 @@
 - Document Symbols / Outline
 - Document formatter with consistent label indentation and column alignment
 
----
-
-## Planned
-
 ### Compiler
 Assemble `.lgp21` source files into LGP-21 machine code binary.
 - Two-pass assembly (resolve forward label references)
 - `.ORG` and `.DATA` directive support
 - Error reporting mapped back to source locations
 - VS Code build task integration (Ctrl+Shift+B)
+
+## Planned
 
 ### Debugger
 Step through LGP-21 programs using a built-in software emulator.

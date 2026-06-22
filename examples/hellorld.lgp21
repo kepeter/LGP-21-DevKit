@@ -1,0 +1,39 @@
+# The famous HELLORLD program by the famous Usagei Electrics
+# implemented for the LGP-21 Computer
+
+               .ORG 0100
+
+loop:           B msg           # load letter from msg
+print:          H current       # store letter to future examination
+
+                P 0200          # send to typewriter the first 6 bits (one letter)
+
+                E mask          # keep only the unused bits - top 6 is 0 now
+
+                S one           # substract 1: If Accumulator was 0, it becomes -1.
+                T skip          # skip to next word
+
+                B current       # load value back to Accumulator
+                I 6200          # shift left by 6 bits to move to the next letter
+                U print         # keep printing letters
+
+skip:           B loop          # load instruction to modify
+                A next          # increment address of letter in msg
+
+                H loop          # store modified instruction
+                S cond          # subtract end of message address from modified instruction
+
+                T loop          # if not reached end of message, repeat loop
+
+                Z 0000          # halt program
+
+# END OF PROGRAM / BEGINNING OF DATA
+
+next:           Z 0001          # next index for msg
+cond:           B end_msg       # end of message address for comparison
+
+mask:          .DATA 67108863   # Binary 0000011111111111111111111111111
+one:           .DATA 1          # constant value 1 for subtraction
+current:       .DATA 0          # variable to hold current letter
+
+msg:           .DATA 'Hellorld{cr}', end_msg:
