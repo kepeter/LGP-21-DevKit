@@ -14,8 +14,10 @@ import {
     labelIdentify,
     labelDefinition,
     labelScan,
+    labelWithOffset,
     analyzeNumericLiteral,
     NumericLiteralInfo,
+    Address,
 } from '../shared/assembler';
 
 // Valid 6-bit character codes for LGP-21
@@ -85,7 +87,7 @@ const Opcodes: Record<string, number> = {
     Z: 0, B: 1, Y: 2, R: 3, I: 4, D: 5, N: 6, M: 7, P: 8, E: 9, U: 10, T: 11, H: 12, C: 13, A: 14, S: 15,
 };
 
-interface Address { track: number; sector: number; }
+
 
 // Usage markers for memory map
 type Mark = 'I' | 'D' | 'R' | '.';
@@ -222,9 +224,27 @@ function parseTtSS(s: string): Address {
     return { track: parseInt(s.slice(0, 2), 10), sector: parseInt(s.slice(2, 4), 10) };
 }
 
-// Resolve a token into an Address, either from a label or a ttSS string
-function resolveAddr(token: string, labelAddresses: Map<string, Address>): Address {
+// Resolve a token into an Address, either from a plain label, label[n] offset, or a ttSS string.
+// On error, pushes to errors and returns address 0000 so the emit loop can continue and collect all errors.
+function resolveAddr(token: string, labelAddresses: Map<string, Address>, line: number, col: number, errors: AssemblyError[]): Address {
     if (labelIdentify.test(token)) return { ...labelAddresses.get(token)! };
+
+    const om = labelWithOffset.exec(token);
+
+    if (om) {
+        const base = labelAddresses.get(om[1])!;
+        const linear = linearOf(base) + parseInt(om[2], 10);
+
+        if (linear < 0 || linear > 4095) {
+            errors.push({
+                line, start: col, end: col + token.length,
+                message: `'${token}' resolves to address ${linear} which is outside the valid range [0, 4095]`
+            });
+            return { track: 0, sector: 0 };
+        }
+
+        return { track: Math.floor(linear / 64), sector: linear % 64 };
+    }
 
     return parseTtSS(token);
 }
@@ -302,7 +322,7 @@ function writeHex(hexPath: string, words: WordEntry[]): void {
 }
 
 // Write the info output file
-function writeInfo(infoPath: string, fileName: string, orgAddr: Address, activeSwitches: string[], currentDefaultQ: number | undefined, labelAddresses: Map<string, Address>, numericEntries: Map<string, NumericLiteralInfo>, qValues: Set<number>, words: WordEntry[], refLinear: Set<number>): void {
+function writeInfo(infoPath: string, fileName: string, orgAddr: Address, activeSwitches: string[], currentDefaultQ: number | undefined, labelAddresses: Map<string, Address>, numericEntries: Map<string, NumericLiteralInfo>, words: WordEntry[], refLinear: Set<number>): void {
     const memMap: Mark[] = new Array(4096).fill('.');
 
     for (const w of words)
@@ -344,6 +364,8 @@ function writeInfo(infoPath: string, fileName: string, orgAddr: Address, activeS
 
         for (const [tok, info] of numericEntries) {
             const exact = info.reason === 'exact' ? 'Yes' : 'No ';
+            const hasFraction = tok.split('@')[0].includes('.');
+            const qCol = hasFraction ? String(info.q).padStart(2) : '  ';
             let note = '';
 
             if (info.reason === 'infinite')
@@ -351,11 +373,8 @@ function writeInfo(infoPath: string, fileName: string, orgAddr: Address, activeS
             else if (info.reason === 'truncated')
                 note = `needs ${info.bitsNeeded} fraction bits, ${info.bitsAvailable} available; stored fraction ${info.storedFractionValue}`;
 
-            infoLines.push(`  ${tok.padEnd(tokW)}  ${String(info.q).padStart(2)}    ${exact}      ${note}`);
+            infoLines.push(`  ${tok.padEnd(tokW)}  ${qCol}    ${exact}      ${note}`);
         }
-
-        if (qValues.size > 1)
-            infoLines.push('', `  WARNING: Mixed q values in numeric literals — arithmetic requires consistent q value.`);
     }
 
     infoLines.push(
@@ -466,8 +485,12 @@ function main(): void {
 
     const rel = path.relative(process.cwd(), absPath);
 
-    const hardErrors = errors.filter(e => e.severity !== 'warning');
+    const hardErrors = errors.filter(e => e.severity !== 'warning' && e.severity !== 'information');
     const warnings = errors.filter(e => e.severity === 'warning');
+    const infos = errors.filter(e => e.severity === 'information');
+
+    for (const i of infos)
+        process.stderr.write(`${rel}:${i.line + 1}:${i.start + 1}: info: ${i.message}\n`);
 
     for (const w of warnings)
         process.stderr.write(`${rel}:${w.line + 1}:${w.start + 1}: warning: ${w.message}\n`);
@@ -491,7 +514,15 @@ function main(): void {
 
         const tokens = nonLabelTokens(stripped);
 
-        if (tokens.length === 0) continue;
+        if (tokens.length === 0) {
+            const labelRegEx = new RegExp(labelScan.source, labelScan.flags);
+            let lm: RegExpExecArray | null;
+
+            while ((lm = labelRegEx.exec(stripped)) !== null)
+                labelAddresses.set(lm[1], { ...cur });
+
+            continue;
+        }
 
         const keyword = tokens[0].token;
 
@@ -537,7 +568,8 @@ function main(): void {
 
     cur = { track: 0, sector: 0 };
 
-    for (const rawLine of lines) {
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const rawLine = lines[lineIdx];
         const stripped = stripComment(rawLine);
 
         if (!stripped.trim()) continue;
@@ -572,7 +604,7 @@ function main(): void {
 
                     cur = nextAddr(cur);
                 } else {
-                    const a = resolveAddr(t.token, labelAddresses);
+                    const a = resolveAddr(t.token, labelAddresses, lineIdx, t.col, errors);
 
                     words.push({ addr: { ...cur }, word: encodeInteger(parseInt(formatTtSS(a), 10)), kind: 'data' });
 
@@ -580,7 +612,7 @@ function main(): void {
                 }
             }
         } else if (instructionSet.has(keyword)) {
-            const operandAddr = resolveAddr(tokens[1].token, labelAddresses);
+            const operandAddr = resolveAddr(tokens[1].token, labelAddresses, lineIdx, tokens[1].col, errors);
 
             if (!valueInstructions.has(keyword)) refLinear.add(linearOf(operandAddr));
 
@@ -590,12 +622,19 @@ function main(): void {
         }
     }
 
-    const qValues = new Set([...numericEntries.values()].map(info => info.q));
+    const emitErrors = errors.filter(e => e.severity !== 'warning' && e.severity !== 'information');
+
+    if (emitErrors.length > 0) {
+        for (const e of emitErrors)
+            process.stderr.write(`${rel}:${e.line + 1}:${e.start + 1}: error: ${e.message}\n`);
+
+        process.exit(1);
+    }
 
     writeBin(binPath, orgAddr, words);
     writeHex(hexPath, words);
     writeJson(jsonPath, orgAddr, words);
-    writeInfo(infoPath, path.basename(absPath), orgAddr, activeSwitches, currentDefaultQ, labelAddresses, numericEntries, qValues, words, refLinear);
+    writeInfo(infoPath, path.basename(absPath), orgAddr, activeSwitches, currentDefaultQ, labelAddresses, numericEntries, words, refLinear);
 
     process.stdout.write(`Assembled ${rel}: ${words.length} word(s)\n`);
     process.stdout.write(`  Binary : ${path.relative(process.cwd(), binPath)}\n`);

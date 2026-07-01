@@ -1,4 +1,4 @@
-# LGP-21 Compiler Sample Programs
+# LGP-21 Compiler Sample Programs - IDEAS
 
 ## 1. Fibonacci Sequence (Iterative Limit)
 * **The Math**: Computes the sequence where $F_n = F_{n-1} + F_{n-2}$.

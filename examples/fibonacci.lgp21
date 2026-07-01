@@ -1,0 +1,112 @@
+# Running alogn the Fibonacci sequence until the memory word overflows
+# 
+# The first 3 members are fixed (0,1,1) and then there is a loop to compute the rest
+# It uses a generic loop to print any number in it's decimal representation - which is extermely slow,
+# like the computatiom takes around 20 seconds and the printing close to 10 minutes
+
+                        B start                 # the opening sequence is printed from memory as is
+                        P 0200
+                        I 6200
+                        P 0200
+                        I 6200
+                        P 0200
+                        I 6200
+                        P 0200
+                        I 6200
+                        P 0200
+
+fibonacci:
+                        B second                # move second to first
+                        H first
+                        B new                   # move new to second
+                        H second
+                        A first                 # add first to get the new member
+
+                       -Z 0200                  # if no overflow skip next instruction
+                        U end                   # otherwise we got to the end
+
+                        H new                   # store the new value
+
+                        H valueToPrint          # prepare to print it
+
+                        B comma                 # but first a comma
+                        P 0200
+
+                        R endPrintNumber        # set up the method call
+                        U printNumber
+
+                        U fibonacci             # loop bakc for the next member
+end:
+                        Z 0000
+
+# the loop to print the decimal value of a binary number
+printNumber:
+                        C counter               # initialze local variables
+                        C counter               # set counter to 0
+
+                        B firstIndex            # set table index to beginning
+                        H table
+
+                        B endTenTable           # set skip to true
+                        H skip
+printLoop:
+                        B valueToPrint          # bring the value to print (or whatever left of it)
+table:
+                        S tenTable              # substract the value at the current index in the tabe of the 10^n
+
+                        T underflow             # toobig - skip to next index
+
+                        H valueToPrint          # found a fit so store the new value
+                        B counter               # and increment the counter
+                        A one
+                        H counter
+
+                        H skip                  # also stop skipping actual print
+
+                        U printLoop             # go on counting
+
+underflow:
+                        B skip                  # if there was no value to print before than this is a leading 0 and we skip it
+                        T nextTableIndex
+
+                        B counter               # load the value
+                        N shift                 # shift to the upper 4 bit
+
+                       -P 0200                  # print
+
+                        C counter               # clear counter
+                        C counter
+
+nextTableIndex:
+                        B table                 # we finished with the current value from the table of 10^n
+                        A nextIndex
+                        H table                 # so modify the code to use the next
+
+                        S endCond               # did we wen past the end of the table?
+
+                        T printLoop             # if not go on
+
+endPrintNumber:         U 0000                  # return to caller
+
+# these commands used to modify code and create a loop
+firstIndex:             S tenTable              # at initialization we start here
+nextIndex:              Z 0001                  # skip to the next index in the table of 10^n
+endCond:                S endTenTable           # to check end of table condition
+
+# helpers to compute the sequence
+start:                 .DATA '0,1,1'            # the fixed beginning members
+comma:                 .DATA ','                # comma to print
+first:                 .DATA 0                  # member F(n-2)
+second:                .DATA 1                  # member F(n-1)
+new:                   .DATA 1                  # member F(n)
+
+valueToPrint:          .DATA 0                  # placeholder to pass to the print method
+
+# table from 10^9 to 10^(-1) to substract from value
+tenTable:              .DATA 1000000000, 100000000, 10000000, 1000000, 100000, 10000, 1000, 100, 10, 1, endTenTable: -1
+
+counter:               .DATA 0                  # counter of occurance of value of current value in the 1o^n table
+one:                   .DATA 1                  # helper to substract 1 and see if counter actually 0
+shift:                 .DATA 67108864           # a 2^26 to shift the value to the right position before print
+
+skip:                  .DATA -1                 # as long as negative we skip printig - for removing leading 0

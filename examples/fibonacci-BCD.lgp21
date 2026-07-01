@@ -1,0 +1,410 @@
+# Running alogn the Fibonacci sequence until the memory word overflows
+# 
+# The LGP-21 does not contains instruction to handle Binary Coded Decimal (BCD) aritmethic
+# but does have input and print (-I, -P) instruction to print out BCD values
+# So in this version of the Fibonacci algoritm I try that option
+# Obviously the BCD computation is much more complicated than the simple binary and takes more memory,
+# but at the end this version is faster
+# A classic presentation of the tread-off between resources of the computer - gain speed but loose storage
+
+                B start                         # the opening sequence is printed from memory as is
+                P 0200
+                I 6200
+                P 0200
+                I 6200
+                P 0200
+                I 6200
+                P 0200
+                I 6200
+                P 0200
+
+fibonacci:
+                B second[0]                     # rotate the storage, second -> first
+                H first[0]
+                B second[1]
+                H first[1]
+                B second[2]
+                H first[2]
+                B second[3]
+                H first[3]
+                B second[4]
+                H first[4]
+                B second[5]
+                H first[5]
+                B second[6]
+                H first[6]
+                B second[7]
+                H first[7]
+                B second[8]
+                H first[8]
+
+                B new[0]                        # new -> second
+                H second[0]
+                B new[1]
+                H second[1]
+                B new[2]
+                H second[2]
+                B new[3]
+                H second[3]
+                B new[4]
+                H second[4]
+                B new[5]
+                H second[5]
+                B new[6]
+                H second[6]
+                B new[7]
+                H second[7]
+                B new[8]
+                H second[8]
+addLoop:
+                R endAdd                        # set return address
+                U add                           # and do addition
+
+                B carry                         # check carry
+                S one
+                T next                          # carry was 0, no overflow, continue
+
+                Z 0000                          # carry was 1, overflow, halt
+
+next:
+                B comma                         # print the separator
+                P 0200
+
+                B negOne                        # store -1 to indicate skipping leading zeroes
+                H skip
+
+                B new[8]                        # printings is done in revers order than adding
+                S one
+                T p8skip                        # if digit is 0 then check the skip status
+                C skip                          # digit non-zero: start printing
+                C skip                          # and turn off skip
+p8print:        B new[8]
+                N shift                         # simply shift the value to the top 4 bit
+               -P 0200                          # and send to the typewriter
+                U p7check
+p8skip:         B skip
+                T p7check
+                U p8print
+
+p7check:        B new[7]                        # same for digit 7
+                S one
+                T p7skip
+                C skip
+                C skip
+p7print:        B new[7]
+                N shift
+               -P 0200
+                U p6check
+p7skip:         B skip
+                T p6check
+                U p7print
+
+p6check:        B new[6]                        # same for digit 6
+                S one
+                T p6skip
+                C skip
+                C skip
+p6print:        B new[6]
+                N shift
+               -P 0200
+                U p5check
+p6skip:         B skip
+                T p5check
+                U p6print
+
+p5check:        B new[5]                        # same for digit 5
+                S one
+                T p5skip
+                C skip
+                C skip
+p5print:        B new[5]
+                N shift
+               -P 0200
+                U p4check
+p5skip:         B skip
+                T p4check
+                U p5print
+
+p4check:        B new[4]                        # same for digit 4
+                S one
+                T p4skip
+                C skip
+                C skip
+p4print:        B new[4]
+                N shift
+               -P 0200
+                U p3check
+p4skip:         B skip
+                T p3check
+                U p4print
+
+p3check:        B new[3]                        # same for digit 3
+                S one
+                T p3skip
+                C skip
+                C skip
+p3print:        B new[3]
+                N shift
+               -P 0200
+                U p2check
+p3skip:         B skip
+                T p2check
+                U p3print
+
+p2check:        B new[2]                        # same for digit 2
+                S one
+                T p2skip
+                C skip
+                C skip
+p2print:        B new[2]
+                N shift
+               -P 0200
+                U p1check
+p2skip:         B skip
+                T p1check
+                U p2print
+
+p1check:        B new[1]                        # same for digit 1
+                S one
+                T p1skip
+                C skip
+                C skip
+p1print:        B new[1]
+                N shift
+               -P 0200
+                U p0print
+p1skip:         B skip
+                T p0print
+                U p1print
+
+p0print:        B new[0]                        # always print digit 0 - the last - even if it is zero
+                N shift
+               -P 0200
+
+                U fibonacci                     # next iteration
+
+# the method to implement 9 digit BCD addition
+add:
+                C carry                         # carry = 0
+                C carry
+
+digit0:
+                B first[0]                      # add first and second with carry
+                A second[0]
+                A carry
+
+                S ten
+                T noCarry0                      # below 10 so no carry
+
+                H tmp
+
+                B one                           # set carry
+                H carry
+                U final0
+
+noCarry0:       A ten
+                H tmp
+
+final0:         B tmp
+                H new[0]                        # store digit as new value
+
+digit1:
+                B first[1]                      # same for digit 1
+                A second[1]
+                A carry
+
+                S ten
+                T noCarry1
+
+                H tmp
+
+                B one
+                H carry
+                U final1
+
+noCarry1:       A ten
+                H tmp
+
+                C carry                         # clear carry to not to carry away carry from previous digit
+                C carry
+
+final1:         B tmp
+                H new[1]
+
+digit2:
+                B first[2]                      # same for digit 2
+                A second[2]
+                A carry
+
+                S ten
+                T noCarry2
+
+                H tmp
+
+                B one
+                H carry
+                U final2
+
+noCarry2:       A ten
+                H tmp
+
+                C carry
+                C carry
+
+final2:         B tmp
+                H new[2]
+
+digit3:
+                B first[3]                      # same for digit 3
+                A second[3]
+                A carry
+
+                S ten
+                T noCarry3
+
+                H tmp
+
+                B one
+                H carry
+                U final3
+
+noCarry3:       A ten
+                H tmp
+
+                C carry
+                C carry
+
+final3:         B tmp
+                H new[3]
+
+digit4:
+                B first[4]                      # same for digit 4
+                A second[4]
+                A carry
+
+                S ten
+                T noCarry4
+
+                H tmp
+
+                B one
+                H carry
+                U final4
+
+noCarry4:       A ten
+                H tmp
+
+                C carry
+                C carry
+
+final4:         B tmp
+                H new[4]
+
+digit5:
+                B first[5]                      # same for digit 5
+                A second[5]
+                A carry
+
+                S ten
+                T noCarry5
+
+                H tmp
+
+                B one
+                H carry
+                U final5
+
+noCarry5:       A ten
+                H tmp
+
+                C carry
+                C carry
+
+final5:         B tmp
+                H new[5]
+
+digit6:
+                B first[6]                      # same for digit 6
+                A second[6]
+                A carry
+
+                S ten
+                T noCarry6
+
+                H tmp
+
+                B one
+                H carry
+                U final6
+
+noCarry6:       A ten
+                H tmp
+
+                C carry
+                C carry
+
+final6:         B tmp
+                H new[6]
+
+digit7:
+                B first[7]                      # same for digit 7
+                A second[7]
+                A carry
+
+                S ten
+                T noCarry7
+
+                H tmp
+
+                B one
+                H carry
+                U final7
+
+noCarry7:       A ten
+                H tmp
+
+                C carry
+                C carry
+
+final7:         B tmp
+                H new[7]
+
+digit8:
+                B first[8]                      # same for digit 8
+                A second[8]
+                A carry
+
+                S ten
+                T noCarry8
+
+                H tmp
+
+                B one
+                H carry
+                U final8
+
+noCarry8:       A ten
+                H tmp
+
+                C carry
+                C carry
+
+final8:         B tmp
+                H new[8]
+
+endAdd:         U 0000
+
+start:         .DATA '0,1,1'                    # the fixed beginning members
+comma:         .DATA ','                        # comma to print
+ten:           .DATA 10                         # const to overfow check
+one:           .DATA 1                          # const to skip check
+
+carry:         .DATA 0                          # the carry value (0 or 1)
+tmp:           .DATA 0                          # temp storage (we have only one register)
+skip:          .DATA 0                          # flag to skip printing leading zeroes
+shift:         .DATA 67108864                   # 26 bit shift value
+negOne:        .DATA -1                         # const to initialize skip flag
+
+first:         .DATA 0, 0, 0, 0, 0, 0, 0, 0, 0  # member F(n-2)
+second:        .DATA 1, 0, 0, 0, 0, 0, 0, 0, 0  # member F(n-1)
+new:           .DATA 1, 0, 0, 0, 0, 0, 0, 0, 0  # member F(n)

@@ -7,6 +7,8 @@ const labelPattern = '[A-Za-z_][A-Za-z0-9_]*';
 export const labelDefinition = new RegExp(`^${labelPattern}:$`);
 export const labelIdentify = new RegExp(`^${labelPattern}$`);
 export const labelScan = new RegExp(`(?<![A-Za-z0-9_:])(${labelPattern}):`, 'g');
+export const labelWithOffset = new RegExp(`^(${labelPattern})\\[(-?[0-9]+)\\]$`);
+
 
 // Characters that require LC (lowercase/figures) mode on the LGP-21 typewriter
 export const lcChars = new Set([
@@ -30,7 +32,7 @@ export interface AssemblyError {
     start: number;
     end: number;
     message: string;
-    severity?: 'error' | 'warning';
+    severity?: 'error' | 'warning' | 'information';
 }
 
 // Analysis result for a numeric literal — exactness, q value, and stored value
@@ -45,6 +47,9 @@ export interface NumericLiteralInfo {
 
 // The structure for a span (start position and length) of any defined element
 export interface Span { line: number; col: number; len: number; }
+
+// A memory address in ttSS format
+export interface Address { track: number; sector: number; }
 
 // The structure for a single token
 export interface Token { token: string; col: number; }
@@ -153,6 +158,13 @@ export function analyzeNumericLiteral(token: string, defaultQ?: number): Numeric
     };
 }
 
+// Extract the base label name from a plain label or label[n] token
+export function baseLabelOf(token: string): string | null {
+    if (labelIdentify.test(token)) return token;
+    const m = labelWithOffset.exec(token);
+    return m ? m[1] : null;
+}
+
 // Collects all label definitions in the provided lines and returns a map of label names to their spans, while also recording any duplicate label errors
 export function collectLabelDefs(lines: string[], errors: AssemblyError[]): Map<string, Span> {
     const labelDefs = new Map<string, Span>();
@@ -231,7 +243,6 @@ export function tokenize(line: string): Token[] {
 // Validates all lines of assembly code, checking for unknown tokens, instruction and directive errors, and string literal issues
 export function validateTokens(lines: string[], labelDefs: Map<string, Span>, errors: AssemblyError[]): void {
     let currentDefaultQ: number | undefined = undefined;
-    const qSeen = new Map<number, { token: string; line: number; col: number }>();
 
     for (let i = 0; i < lines.length; i++) {
         const stripped = stripComment(lines[i]);
@@ -264,14 +275,6 @@ export function validateTokens(lines: string[], labelDefs: Map<string, Span>, er
             validateInstructionGroup(i, tokens, labelDefs, errors);
         } else if (directiveSet.has(first.token)) {
             validateDirectiveGroup(i, tokens, labelDefs, errors, currentDefaultQ);
-
-            if (first.token === '.DATA') {
-                for (const t of tokens.slice(1)) {
-                    if (!/^-?[0-9]+(\.[0-9]+)?(@[0-9]+)?$/.test(t.token)) continue;
-                    const q = numericQ(t.token, currentDefaultQ);
-                    if (!qSeen.has(q)) qSeen.set(q, { token: t.token, line: i, col: t.col });
-                }
-            }
         } else {
             errors.push({
                 line: i, start: first.col, end: first.col + first.token.length,
@@ -285,19 +288,6 @@ export function validateTokens(lines: string[], labelDefs: Map<string, Span>, er
 
         for (const t of tokenize(stripped))
             if (/^'[^']*'$/.test(t.token)) validateStringLiterals(t, i, errors);
-    }
-
-    // Check for mixed q values in numeric literals within .DATA directives
-    // It may be an programmer error if different q values are used in the same .DATA directive, as arithmetic operations require consistent q values
-    // But it is not a fatal error, so we only issue a warning if mixed q values are detected
-    if (qSeen.size > 1) {
-        const first = [...qSeen.values()][0];
-
-        errors.push({
-            line: first.line, start: first.col, end: first.col + first.token.length,
-            severity: 'warning',
-            message: `Mixed q values in numeric literals — arithmetic requires consistent q value.`
-        });
     }
 }
 
@@ -322,21 +312,6 @@ const validLgp21Chars = new Set([
     'P', 'p', 'E', 'e', 'U', 'u', 'T', 't', 'H', 'h', 'C', 'c', 'A', 'a', 'S', 's',
     ' ', '_', '-', '=', '+', ':', ';', '?', '/', ']', '.', '[', ',', 'V', 'v', '0', 'O', 'o', 'X', 'x',
 ]);
-
-// Extracts the q value from a numeric literal token either from the literal or from the default q value or computes it based on the whole part of the number
-function numericQ(token: string, defaultQ?: number): number {
-    const atIdx = token.indexOf('@');
-
-    if (atIdx >= 0) return parseInt(token.slice(atIdx + 1), 10);
-    if (defaultQ !== undefined) return defaultQ;
-
-    const whole = Math.trunc(Number(token.split('.')[0]));
-    let tmp = Math.abs(whole), bits = 0;
-
-    while (tmp) { bits++; tmp = Math.floor(tmp / 2); }
-
-    return bits;
-}
 
 // Pads a binary string to fit into a 32-bit signed integer representation, considering the sign and a separator bit
 function padTo32Bit(binaryStr: string, isNegative: boolean): number {
@@ -478,10 +453,15 @@ function validateNumericLiterals(t: Token, line: number, errors: AssemblyError[]
     }
 }
 
-// The parameter is either label or address (ttSS)
+// The parameter is either label, label[n], or address (ttSS)
 function validateParameter(token: string, labelDefs: Map<string, Span>): string | null {
     if (labelIdentify.test(token))
         return labelDefs.has(token) ? null : `Undefined label '${token}'`;
+
+    const om = labelWithOffset.exec(token);
+
+    if (om)
+        return labelDefs.has(om[1]) ? null : `Undefined label '${om[1]}'`;
 
     return validateTtSS(token);
 }
@@ -538,6 +518,123 @@ function validateStringLiterals(t: Token, line: number, errors: AssemblyError[])
             }
 
             i++;
+        }
+    }
+}
+
+// Count characters in a string literal (each {escape} counts as one character)
+function charCountInString(token: string): number {
+    const content = token.slice(1, -1);
+    let count = 0;
+    let i = 0;
+
+    while (i < content.length) {
+        if (content[i] === '{') {
+            const close = content.indexOf('}', i);
+            i = close >= 0 ? close + 1 : content.length;
+        } else {
+            i++;
+        }
+
+        count++;
+    }
+
+    return count;
+}
+
+// Number of 32-bit words a .DATA token occupies
+function dataWordCount(token: string): number {
+    if (/^'[^']*'$/.test(token)) return Math.max(1, Math.ceil(charCountInString(token) / 5));
+
+    return 1;
+}
+
+// Compute the address of every label in the source, in layout order.
+// Returns a map of label name → Address. Mirrors the compiler's layout pass.
+export function computeLabelAddresses(lines: string[]): Map<string, Address> {
+    const addresses = new Map<string, Address>();
+    let cur: Address = { track: 0, sector: 0 };
+
+    const nextAddr = (a: Address): Address => {
+        const s = a.sector + 1;
+        return s < 64 ? { track: a.track, sector: s } : { track: a.track + 1, sector: 0 };
+    };
+
+    const parseTtSS = (s: string): Address =>
+        ({ track: parseInt(s.slice(0, 2), 10), sector: parseInt(s.slice(2, 4), 10) });
+
+    for (const rawLine of lines) {
+        const stripped = stripComment(rawLine);
+
+        if (!stripped.trim()) continue;
+
+        const tokens = nonLabelTokens(stripped);
+
+        if (tokens.length === 0) {
+            const re = new RegExp(labelScan.source, labelScan.flags);
+            let m: RegExpExecArray | null;
+
+            while ((m = re.exec(stripped)) !== null)
+                addresses.set(m[1], { ...cur });
+
+            continue;
+        }
+
+        const keyword = tokens[0].token;
+
+        if (keyword === '.DATA') {
+            let seenKeyword = false;
+
+            for (const t of splitByComma(stripped).flat()) {
+                if (t.token === '.DATA') { seenKeyword = true; continue; }
+
+                if (labelDefinition.test(t.token)) {
+                    addresses.set(t.token.slice(0, -1), { ...cur });
+                } else if (seenKeyword) {
+                    for (let w = 0; w < dataWordCount(t.token); w++) cur = nextAddr(cur);
+                }
+            }
+        } else {
+            const re = new RegExp(labelScan.source, labelScan.flags);
+            let m: RegExpExecArray | null;
+
+            while ((m = re.exec(stripped)) !== null)
+                addresses.set(m[1], { ...cur });
+
+            if (keyword === '.ORG') {
+                cur = parseTtSS(tokens[1].token);
+            } else if (instructionSet.has(keyword)) {
+                cur = nextAddr(cur);
+            }
+        }
+    }
+
+    return addresses;
+}
+
+// Validate that all label[n] offset references resolve to a valid address.
+// Must be called after computeLabelAddresses so the map is complete.
+export function validateLabelOffsets(lines: string[], labelAddresses: Map<string, Address>, errors: AssemblyError[]): void {
+    for (let i = 0; i < lines.length; i++) {
+        const stripped = stripComment(lines[i]);
+
+        for (const t of tokenize(stripped)) {
+            const om = labelWithOffset.exec(t.token);
+
+            if (!om) continue;
+
+            const base = labelAddresses.get(om[1]);
+
+            if (!base) continue; // undefined label already reported elsewhere
+
+            const linear = base.track * 64 + base.sector + parseInt(om[2], 10);
+
+            if (linear < 0 || linear > 4095) {
+                errors.push({
+                    line: i, start: t.col, end: t.col + t.token.length,
+                    message: `'${t.token}' resolves to address ${linear} which is outside the valid range [0, 4095]`
+                });
+            }
         }
     }
 }

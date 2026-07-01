@@ -3,6 +3,8 @@ import {
     type Hover,
     type Location,
     type TextEdit,
+    CompletionItem,
+    CompletionItemKind,
     createConnection,
     Diagnostic,
     DiagnosticSeverity,
@@ -33,8 +35,12 @@ import {
     valueInstructions,
     labelIdentify,
     labelDefinition,
+    labelWithOffset,
+    baseLabelOf,
     collectLabelDefs,
     validateTokens,
+    computeLabelAddresses,
+    validateLabelOffsets,
 } from '../shared/assembler';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
@@ -69,7 +75,7 @@ interface ParsedLine {
 // Returns a diagnostic error as a LSP Diagnostic object
 function asDiagnostic(e: AssemblyError): Diagnostic {
     return {
-        severity: e.severity === 'warning' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
+        severity: e.severity === 'warning' ? DiagnosticSeverity.Warning : e.severity === 'information' ? DiagnosticSeverity.Information : DiagnosticSeverity.Error,
         range: {
             start: { line: e.line, character: e.start },
             end: { line: e.line, character: e.end },
@@ -222,9 +228,7 @@ function labelAtPosition(doc: TextDocument, line: number, character: number): st
         if (character >= t.col && character < t.col + t.token.length) {
             const bare = t.token.endsWith(':') ? t.token.slice(0, -1) : t.token;
 
-            if (labelIdentify.test(bare)) return bare;
-
-            return null;
+            return baseLabelOf(bare);
         }
     }
 
@@ -309,16 +313,22 @@ function validate(doc: TextDocument): void {
     // Second pass: validate instructions, directives, and string literals
     validateTokens(lines, labelDefs, errors);
 
-    // Third pass: collect label references
+    // Third pass: validate label[n] offset addresses against the resolved layout
+    const labelAddresses = computeLabelAddresses(lines);
+    validateLabelOffsets(lines, labelAddresses, errors);
+
+    // Fourth pass: collect label references
     for (let i = 0; i < lines.length; i++) {
         const stripped = stripComment(lines[i]);
 
         for (const t of tokenize(stripped)) {
-            if (labelIdentify.test(t.token) && labelDefs.has(t.token)) {
-                const list = labelRefs.get(t.token) ?? [];
+            const base = baseLabelOf(t.token.endsWith(':') ? t.token.slice(0, -1) : t.token);
+
+            if (base && labelDefs.has(base)) {
+                const list = labelRefs.get(base) ?? [];
 
                 list.push({ line: i, col: t.col, len: t.token.length });
-                labelRefs.set(t.token, list);
+                labelRefs.set(base, list);
             }
         }
     }
@@ -331,6 +341,7 @@ connection.onInitialize((_params: InitializeParams): InitializeResult => ({
     // return the capabilities of the language server
     capabilities: {
         textDocumentSync: TextDocumentSyncKind.Incremental,
+        completionProvider: {},
         documentFormattingProvider: true,
         documentRangeFormattingProvider: true,
         definitionProvider: true,
@@ -340,6 +351,18 @@ connection.onInitialize((_params: InitializeParams): InitializeResult => ({
         documentSymbolProvider: true,
     },
 }));
+
+// provide lables for code completition
+connection.onCompletion(params => {
+    const state = docStates.get(params.textDocument.uri);
+
+    if (!state) return [];
+
+    return Array.from(state.labelDefs.keys()).map(name => ({
+        label: name,
+        kind: CompletionItemKind.Reference,
+    } satisfies CompletionItem));
+});
 
 // Provides hover information for instructions, directives, switches, labels, and string escapes
 connection.onHover(params => {
@@ -416,19 +439,22 @@ connection.onHover(params => {
 
     // Provide hover for labels at their definition and reference sites, showing the number of references and, for references, the definition line
     if (state) {
-        const bare = t.token.endsWith(':') ? t.token.slice(0, -1) : t.token;
+        const rawBare = t.token.endsWith(':') ? t.token.slice(0, -1) : t.token;
+        const base = baseLabelOf(rawBare);
+        const offset = labelWithOffset.exec(rawBare)?.[2];
 
-        if (labelIdentify.test(bare)) {
-            const def = state.labelDefs.get(bare);
-            const refCount = state.labelRefs.get(bare)?.length ?? 0;
+        if (base) {
+            const def = state.labelDefs.get(base);
+            const refCount = state.labelRefs.get(base)?.length ?? 0;
 
             if (def) {
                 const isDef = t.token.endsWith(':');
                 const line1 = def.line + 1;
+                const offsetSuffix = offset !== undefined ? ` + offset ${offset}` : '';
 
                 return hover(isDef
-                    ? `**${bare}** — label definition, ${refCount} reference${refCount !== 1 ? 's' : ''}`
-                    : `**${bare}** — defined at line ${line1}, ${refCount} reference${refCount !== 1 ? 's' : ''}`
+                    ? `**${base}** — label definition, ${refCount} reference${refCount !== 1 ? 's' : ''}`
+                    : `**${base}**${offsetSuffix} — defined at line ${line1}, ${refCount} reference${refCount !== 1 ? 's' : ''}`
                 );
             }
         }

@@ -83,7 +83,7 @@ The compiler provides warnings and errors the way as the real-time diagnostic do
 - While programmer can use explicit {uc}/{lc} escapes the compiler will automatically apply them based on the character to print, if none provided
 - Build command (default to Ctrl+Shift+B) is active only if lgp21 file is opened, but that case it is the default - no task selection needed
 - Numeric literals will accept a q value in the form of @q at the end of the literal (for convenience default q value can be set using .Q directive). About the q value read more in the Programming Manual
-
+- Code can add literal index to labels in the form of array like syntax - label[4]
 
 ## Requirements
 

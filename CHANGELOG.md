@@ -32,3 +32,12 @@ Adding compiler and polishing functionality
 - Shared logic between server and compiler was redesigned
 - Added tf (Tape Feed) to escape options
 - Added a compiler to the language
+
+## [0.1.3] — 2026-07-01
+
+Adding option to array like addressing of memory
+
+### Content
+- The syntax `lable[n]` will compile to the address `lable+n`, while checking track boundaries and range
+- Added code samples for printing the Fibonacci sequence (up to F₄₄)
+- Removed the mixed q values warning - it created the wrong impression. Also removed the q value from the info file from literals where the stored value actually was not effected by it
